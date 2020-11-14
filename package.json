@@ -1,0 +1,24 @@
+{
+   "name": "rx6800",
+   "version": "0.0.1",
+   "description": "Awesome project developed with TypeORM.",
+   "devDependencies": {
+      "@types/node": "^14.14.7",
+      "@types/nodemailer": "^6.4.0",
+      "ts-node": "9.0.0",
+      "typescript": "4.0.5"
+   },
+   "dependencies": {
+      "@types/jsdom": "^16.2.5",
+      "axios": "^0.21.0",
+      "dotenv": "^8.2.0",
+      "jsdom": "^16.4.0",
+      "mongodb": "^3.6.3",
+      "nodemailer": "^6.4.16",
+      "reflect-metadata": "^0.1.13",
+      "typeorm": "0.2.25"
+   },
+   "scripts": {
+      "start": "ts-node src/index.ts"
+   }
+}

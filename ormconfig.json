@@ -1,0 +1,12 @@
+{
+   "type": "mongodb",
+   "url": "mongodb+srv://scrapper:XgOUvxpuY1xtU2kg@scrapping.zwjfs.mongodb.net/RX6800",
+   "useNewUrlParser": true,
+   "useUnifiedTopology": true,
+   "synchronize": true,
+   "logging": true,
+   "ssl": true,
+   "entities": [
+      "src/entity/**/*.ts"
+   ]
+}
