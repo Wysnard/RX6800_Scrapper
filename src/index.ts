@@ -36,7 +36,7 @@ createConnection()
           return (
             item.price > 450 &&
             item.price < 1100 &&
-            item.title.includes("RX 6800")
+            item.title.includes("RX 5700")
           );
         });
 
