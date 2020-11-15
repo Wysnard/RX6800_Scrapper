@@ -1,9 +1,11 @@
 import "reflect-metadata";
-import axios from "axios";
-import { JSDOM } from "jsdom";
+import _ from "lodash";
 import nodemailer from "nodemailer";
-import { createConnection } from "typeorm";
+import { createConnection, getMongoRepository } from "typeorm";
 import { Product } from "./entity/Product";
+import scrap_ldlc from "./scrapper/ldlc";
+import scrap_materiel from "./scrapper/materiel";
+import scrap_cybertek from "./scrapper/cybertek";
 
 require("dotenv").config();
 
@@ -15,110 +17,68 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-function scrap_ldlc() {
-  return axios
-    .get("https://www.ldlc.com/recherche/amd%20rx%206800/")
-    .then((response) => {
-      const dom = new JSDOM(response.data);
-      const products = dom.window.document
-        .querySelector("div.listing-product")
-        .querySelector("ul")
-        .querySelectorAll("li");
-
-      const product_list: Product[] = [];
-      products.forEach((item) => {
-        const info = item.querySelector(".pdt-info");
-        const description = info.querySelector(".pdt-desc");
-        const title = description.querySelector(".title-3");
-        const price = item.querySelector(".price.price");
-        const link = title.querySelector("a");
-        const product = new Product(
-          title.textContent,
-          "https://www.ldlc.com" + link.href,
-          Number(price.textContent.replace(/\s/g, "").replace("€", "."))
-        );
-        product_list.push(product);
-      });
-      return product_list;
-    })
-    .catch((error) => {
-      console.log(error);
-      return [] as Product[];
-    });
-}
-
-function scrap_materiel() {
-  return axios
-    .get("https://www.materiel.net/recherche/amd%20rx%206800/?department=424")
-    .then((response) => {
-      const dom = new JSDOM(response.data);
-      const products = dom.window.document
-        .querySelector("ul.c-products-list")
-        .querySelectorAll("li");
-
-      const product_list: Product[] = [];
-      products.forEach((item) => {
-        const info = item.querySelector(".c-product__meta");
-        const link = info.querySelector("a");
-        const title = link.querySelector(".c-product__title");
-        const price = item.querySelector(".c-product__prices");
-        const product = new Product(
-          title.textContent,
-          "https://www.materiel.net" + link.href,
-          Number(price.textContent.replace(/\s/g, "").replace("€", "."))
-        );
-        product_list.push(product);
-      });
-      return product_list;
-    })
-    .catch((error) => {
-      console.log(error);
-      return [] as Product[];
-    });
-}
-
 createConnection()
   .then(async (connection) => {
-    console.log("Processing the scrapping...");
-    const scrapping_result = await Promise.all([
-      scrap_ldlc(),
-      scrap_materiel(),
-    ]);
-    const product_list = scrapping_result.reduce((acc, val) => acc.concat(val));
+    console.log("Enjoy the scraping HEYO!.");
+    setInterval(async () => {
+      const date_ob = new Date();
+      const date_str = `[${date_ob.getFullYear()}-${date_ob.getMonth()}-${date_ob.getDate()} ${date_ob.getHours()}:${date_ob.getMinutes()}:${date_ob.getSeconds()}]`;
+      // console.log(date_str);
+      const scrapping_result = await Promise.all([
+        scrap_ldlc(),
+        scrap_materiel(),
+        scrap_cybertek(),
+      ]);
+      // console.log(scrapping_result);
+      const product_list = scrapping_result
+        .reduce((acc, val) => acc.concat(val))
+        .filter((item) => {
+          return (
+            item.price > 450 &&
+            item.price < 1100 &&
+            item.title.includes("RX 6800")
+          );
+        });
 
-    const content = product_list
-      .map((product) => {
-        return `
-      <div>
-        <a href="${product.link}">${product.title}</a>
-        <b>${product.price}€</b>
-      </div>
-    `;
-      })
-      .join("");
+      // console.log("Loading rxs from the database...");
+      const products = await connection.manager.find(Product);
+      const product_diff = _.differenceBy(product_list, products, "link");
+      // console.log("Product scrapped: ", product_list[0]);
+      // console.log("=== ===");
+      // console.log("Product DB: ", products_cleared[0]);
+      // console.log("((( )))");
+      console.log(`${date_str} Product diff: `, product_diff);
 
-    console.log("Inserting new products into the database...");
-    // const product = new Product("AMD Radeon Rx 6800", "www.example.fr", 500);
-    await connection.manager.save(product_list);
-    // console.log("Saved a new rx with id: " + product.id);
+      if (product_diff.length > 0) {
+        console.log(`${date_str} Inserting new products into the database...`);
+        // const product = new Product("AMD Radeon Rx 6800", "www.example.fr", 500);
+        await getMongoRepository(Product).insertMany(product_diff);
+        // console.log("Saved a new rx with id: " + product.id);
 
-    console.log("Loading rxs from the database...");
-    const products = await connection.manager.find(Product);
-    console.log("Loaded rxs: ", products);
+        const current_products = await connection.manager.find(Product);
 
-    const mailOptions = {
-      from: "RX6800scrapper@gmail.com",
-      to: "vincent.lay77@gmail.com",
-      subject: "RX 6800 Scrapping Update!",
-      html: content,
-    };
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) console.log(error);
-      else if (info) console.log("Email sent: " + info.response);
-    });
+        const content = current_products
+          .map((item) => {
+            return `
+            <div>
+              <a href="${item.link}">${item.title}</a>
+              <b>${item.price}€</b>
+            </div>
+          `;
+          })
+          .join("");
 
-    console.log("Here you can setup and run express/koa/any other framework.");
-    setInterval(() => console.log("hello"), 1000);
-    return null;
+        const mailOptions = {
+          from: "RX6800scrapper@gmail.com",
+          to: process.env.TO.split(" "),
+          subject: "RX 6800 Scrapping Update!",
+          html: content,
+        };
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) console.log(error);
+          else if (info) console.log("Email sent: " + info.response);
+        });
+      }
+    }, 5000);
   })
   .catch((error) => console.log(error));

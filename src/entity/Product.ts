@@ -1,4 +1,10 @@
-import { Entity, ObjectIdColumn, ObjectID, Column } from "typeorm";
+import {
+  Entity,
+  ObjectIdColumn,
+  ObjectID,
+  Column,
+  PrimaryColumn,
+} from "typeorm";
 
 @Entity()
 export class Product {
@@ -8,7 +14,7 @@ export class Product {
   @Column()
   title: string;
 
-  @Column()
+  @PrimaryColumn()
   link: string;
 
   @Column()
