@@ -47,10 +47,10 @@ createConnection()
       // console.log("=== ===");
       // console.log("Product DB: ", products_cleared[0]);
       // console.log("((( )))");
-      console.log(`${date_str} Product diff: `, product_diff);
 
       if (product_diff.length > 0) {
         console.log(`${date_str} Inserting new products into the database...`);
+        console.log(`${date_str} Product diff: `, product_diff);
         // const product = new Product("AMD Radeon Rx 6800", "www.example.fr", 500);
         await getMongoRepository(Product).insertMany(product_diff);
         // console.log("Saved a new rx with id: " + product.id);
